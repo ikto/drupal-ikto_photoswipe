@@ -1,0 +1,7 @@
+name = IKTO PhotoSwipe
+description = Javascript-based photo gallery display for your Drupal website (very sleek with mobile browsers).
+core = 7.x
+dependencies[] = libraries
+dependencies[] = ikto_form
+
+configure = admin/config/media/ikto_photoswipe

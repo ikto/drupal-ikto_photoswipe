@@ -1,0 +1,51 @@
+<?php
+
+/**
+ * Implements hook_uninstall().
+ */
+function ikto_photoswipe_uninstall() {
+  variable_del('ikto_photoswipe_formatter_defaults_core');
+  variable_del('ikto_photoswipe_formatter_defaults_default_ui');
+  variable_del('ikto_photoswipe_library_variant');
+  variable_del('ikto_photoswipe_compat_slick');
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function ikto_photoswipe_requirements($phase) {
+  $requirements = array();
+
+  if ($phase == 'runtime') {
+    $t = get_t();
+    $library = libraries_detect('photoswipe');
+    $error_type = isset($library['error']) ? drupal_ucfirst($library['error']) : '';
+    $error_message = isset($library['error message']) ? $library['error message'] : '';
+
+    if (empty($library['installed'])) {
+      $requirements['photoswipe_library'] = array(
+        'title' => $t('Photoswipe library'),
+        'value' => $t('@e: At least @a', array('@e' => $error_type, '@a' => IKTO_PHOTOSWIPE_MIN_LIBRARY_VERSION)),
+        'severity' => REQUIREMENT_ERROR,
+        'description' => $t('!error You need to download the !photoswipe, extract the archive and place the photoswipe directory in the %path directory on your server.', array('!error' => $error_message, '!photoswipe' => l($t('Photoswipe library'), $library['download url']), '%path' => 'sites/all/libraries')),
+      );
+    }
+    elseif (version_compare($library['version'], IKTO_PHOTOSWIPE_MIN_LIBRARY_VERSION, '>=')) {
+      $requirements['photoswipe_library'] = array(
+        'title' => $t('Photoswipe library'),
+        'severity' => REQUIREMENT_OK,
+        'value' => $library['version'],
+      );
+    }
+    else {
+      $requirements['photoswipe_library'] = array(
+        'title' => $t('Photoswipe library'),
+        'value' => $t('At least @a', array('@a' => IKTO_PHOTOSWIPE_MIN_LIBRARY_VERSION)),
+        'severity' => REQUIREMENT_ERROR,
+        'description' => $t('You need to download a later version of the !photoswipe and replace the old version located in the %path directory on your server.', array('!photoswipe' => l($t('Photoswipe plugin'), $library['download url']), '%path' => $library['library path'])),
+      );
+    }
+  }
+
+  return $requirements;
+}

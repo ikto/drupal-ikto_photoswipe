@@ -1,0 +1,393 @@
+<?php
+
+/**
+ * @file
+ * PhotoSwipe integration with Drupal module.
+ */
+
+/**
+ * The minimum PhotoSwipe version
+ */
+define('IKTO_PHOTOSWIPE_MIN_LIBRARY_VERSION', '4.0.0');
+
+/**
+ * Implements hook_menu().
+ */
+function ikto_photoswipe_menu() {
+  $items['admin/config/media/ikto_photoswipe'] = array(
+    'title'             => 'IKTO PhotoSwipe',
+    'description'       => 'Adjust PhotoSwipe settings.',
+    'file'              => 'ikto_photoswipe.admin.inc',
+    'page callback'     => 'drupal_get_form',
+    'page arguments'    => array('ikto_photoswipe_admin_settings_form'),
+    'access arguments'  => array('administer site configuration'),
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function ikto_photoswipe_theme($existing, $type, $theme, $path) {
+
+  $themes['ikto_photoswipe_element'] = array(
+    'path'      => drupal_get_path('module', 'ikto_photoswipe') . '/templates',
+    'template'  => 'ikto-photoswipe-element',
+    'variables' => array(),
+  );
+
+  $themes['ikto_photoswipe_field'] = array(
+    'file' => 'ikto_photoswipe.theme.inc',
+    'variables' => array(
+      'delta'             => '',
+      'item'              => '',
+      'display_settings'  => '',
+    ),
+  );
+
+  return $themes;
+}
+
+/**
+ * Implements hook_libraries_info().
+ */
+function ikto_photoswipe_libraries_info() {
+  $libraries['photoswipe'] = array(
+    'name' => 'PhotoSwipe library',
+    'vendor url' => 'http://photoswipe.com/',
+    'download url' => 'https://github.com/dimsemenov/PhotoSwipe/',
+    'path' => 'dist',
+    'version arguments' => array(
+      'file' => 'dist/photoswipe.min.js',
+      'pattern' => '@(?i:PhotoSwipe)\s-\sv?([0-9\.a-z]+)@',
+      'lines' => 5,
+    ),
+    'files' => array(
+      'js' => array(
+        'photoswipe.min.js' => array('group' => JS_LIBRARY),
+        'photoswipe-ui-default.min.js' => array('group' => JS_LIBRARY),
+      ),
+      'css' => array(
+        'photoswipe.css',
+        'default-skin/default-skin.css',
+      )
+    ),
+    'variants' => array(
+      'minified' => array(
+        'files' => array(
+          'js' => array(
+            'photoswipe.min.js',
+            'photoswipe-ui-default.min.js',
+          ),
+          'css' => array(
+            'photoswipe.css',
+            'default-skin/default-skin.css',
+          )
+        ),
+      ),
+      'source' => array(
+        'files' => array(
+          'js' => array(
+            'photoswipe.js',
+            'photoswipe-ui-default.js',
+          ),
+          'css' => array(
+            'photoswipe.css',
+            'default-skin/default-skin.css',
+          )
+        ),
+      ),
+    ),
+  );
+
+  return $libraries;
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function ikto_photoswipe_field_formatter_info() {
+
+  $t = 'ikto_photoswipe_t';
+
+  $formatters['ikto_photoswipe'] = array(
+    'label' => $t('IKTO PhotoSwipe'),
+    'field types' => array('image'),
+    'settings' => array(
+      'default_image_style' => '',
+      'photoswipe_image_style' => '',
+    ),
+  );
+
+  return $formatters;
+}
+
+/**
+ * Implements hook_field_formatter_settings_form().
+ */
+function ikto_photoswipe_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+
+  $t = 'ikto_photoswipe_t';
+
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $image_styles = image_style_options(FALSE);
+
+  $element['default_image_style'] = array(
+    '#title' => $t('Field image style'),
+    '#type' => 'select',
+    '#default_value' => $settings['default_image_style'],
+    '#empty_option' => $t('None (original image)'),
+    '#options' => $image_styles + array('_hide' => 'Hide'),
+    '#description' => $t('Image style to use in field.'),
+  );
+  $element['photoswipe_image_style'] = array(
+    '#title' => $t('PhotoSwipe image style'),
+    '#type' => 'select',
+    '#default_value' => $settings['photoswipe_image_style'],
+    '#empty_option' => $t('None (original image)'),
+    '#options' => $image_styles,
+    '#description' => $t('Image style to use in the Photoswipe.'),
+  );
+
+  return $element;
+}
+
+/**
+ * Implements hook_field_formatter_settings_summary().
+ */
+function ikto_photoswipe_field_formatter_settings_summary($field, $instance, $view_mode) {
+
+  $t = 'ikto_photoswipe_t';
+
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $summary = array();
+  $image_styles = image_style_options(FALSE);
+
+  if (isset($image_styles[$settings['default_image_style']])) {
+    $summary[] = $t('Field image style: @style', array('@style' => $image_styles[$settings['default_image_style']]));
+  }
+  else if ($settings['default_image_style'] == '_hide') {
+    $summary[] = $t('Field image style: Hide');
+  }
+  else {
+    $summary[] = $t('Field image style: Original image');
+  }
+
+  if (isset($image_styles[$settings['photoswipe_image_style']])) {
+    $summary[] = $t('Photoswipe image style: @style', array('@style' => $image_styles[$settings['photoswipe_image_style']]));
+  }
+  else {
+    $summary[] = $t('Photoswipe image style: Original image');
+  }
+
+  return implode('<br />', $summary);
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function ikto_photoswipe_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+
+  foreach ($items as $delta => $item) {
+    $element[$delta] = array(
+      '#theme'            => 'ikto_photoswipe_field',
+      '#item'             => $item,
+      '#delta'            => $delta,
+      '#display_settings' => $display['settings'],
+    );
+
+    // Otherwise library, js and css do not attach when field rendered by views
+    $element[$delta]['#attached'] = _ikto_photoswipe_get_attachments();
+  }
+
+  return $element;
+}
+
+function ikto_photoswipe_t($string, array $args = array(), array $options = array()) {
+  $options['context'] = 'ikto_photoswipe';
+  return t($string, $args, $options);
+}
+
+function ikto_photoswipe_get_global_options_core() {
+  $options = variable_get('ikto_photoswipe_formatter_defaults_core', array());
+
+  /**
+   * TODO
+   * Some items are disabled because they are not handled by Drupal settings properly
+   * Need to think
+   */
+
+  $options += array(
+    'showHideOpacity'       => FALSE,
+    'showAnimationDuration' => 333,
+    'hideAnimationDuration' => 333,
+    'bgOpacity'             => 1,
+    'spacing'               => 0.12,
+    'allowPanToNext'        => TRUE,
+    'maxSpreadZoom'         => 2,
+    'loop'                  => TRUE,
+    'pinchToClose'          => TRUE,
+    'closeOnScroll'         => TRUE,
+    'closeOnVerticalDrag'   => TRUE,
+    'mouseUsed'             => FALSE,
+    'escKey'                => TRUE,
+    'arrowKeys'             => TRUE,
+    'history'               => TRUE,
+    'errorMsg' => '<div class="pswp__error-msg"><a href="%url%" target="_blank">The image</a> could not be loaded.</div>',
+    //'preload'               => array(1, 1),
+    'mainClass'             => NULL,
+    'focus'                 => TRUE,
+    'modal'                 => TRUE,
+  );
+
+  return _ikto_photoswipe_filter_options_core($options);
+}
+
+function ikto_photoswipe_get_global_options_default_ui() {
+  $options = variable_get('ikto_photoswipe_formatter_defaults_default_ui', array());
+
+  /**
+   * TODO
+   * Some items are disabled because they are not handled by Drupal settings properly
+   * Need to think
+   */
+
+  $t = 'ikto_photoswipe_t';
+
+  $options += array(
+    'barsSize'                => array('top' => 44, 'bottom' => 'auto'),
+    'timeToIdle'              => 4000,
+    'timeToIdleOutside'       => 1000,
+    'loadingIndicatorDelay'   => 1000,
+    'closeEl'                 => TRUE,
+    'captionEl'               => TRUE,
+    'fullscreenEl'            => TRUE,
+    'zoomEl'                  => TRUE,
+    'shareEl'                 => TRUE,
+    'counterEl'               => TRUE,
+    'arrowEl'                 => TRUE,
+    'preloaderEl'             => TRUE,
+    'tapToClose'              => FALSE,
+    'tapToToggleControls'     => TRUE,
+    'clickToCloseNonZoomable' => TRUE,
+    //'closeElClasses'          => array('item', 'caption', 'zoom-wrap', 'ui', 'top-bar'),
+    'indexIndicatorSep'       => ' / ',
+    /*
+    'shareButtons'            => array(
+      array(
+        'id'    => 'facebook',
+        'label' => $t('Share on Facebook'),
+        'url'   => 'https://www.facebook.com/sharer/sharer.php?u={{url}}',
+      ),
+      array(
+        'id'    => 'twitter',
+        'label' => $t('Tweet'),
+        'url'   => 'https://twitter.com/intent/tweet?text={{text}}&url={{url}}',
+      ),
+      array(
+        'id'    => 'pinterest',
+        'label' => $t('Pin it'),
+        'url'   => 'http://www.pinterest.com/pin/create/button/?url={{url}}&media={{image_url}}&description={{text}}',
+      ),
+      array(
+        'id'        => 'download',
+        'label'     => $t('Download image'),
+        'url'       => '{{raw_image_url}}',
+        'download'  => TRUE,
+      ),
+    ),
+    */
+  );
+
+  return _ikto_photoswipe_filter_options_default_ui($options);
+}
+
+function _ikto_photoswipe_filter_options_core($options) {
+  $ints = array('showAnimationDuration', 'hideAnimationDuration');
+  foreach ($ints as $int) {
+    $options[$int] = (int) $options[$int];
+  }
+
+  $floats = array('bgOpacity', 'spacing', 'maxSpreadZoom');
+  foreach ($floats as $float) {
+    $options[$float] = (float) $options[$float];
+  }
+
+  $booleans = array(
+    'showHideOpacity',
+    'allowPanToNext',
+    'loop',
+    'pinchToClose',
+    'closeOnScroll',
+    'closeOnVerticalDrag',
+    'mouseUsed',
+    'escKey',
+    'arrowKeys',
+    'history',
+    'focus',
+    'modal',
+  );
+  foreach ($booleans as $boolean) {
+    $options[$boolean] = (boolean) $options[$boolean];
+  }
+
+  return $options;
+}
+
+function _ikto_photoswipe_filter_options_default_ui($options) {
+  $ints = array('timeToIdle', 'timeToIdleOutside', 'loadingIndicatorDelay');
+  foreach ($ints as $int) {
+    $options[$int] = (int) $options[$int];
+  }
+
+  $booleans = array(
+    'closeEl',
+    'captionEl',
+    'fullscreenEl',
+    'zoomEl',
+    'shareEl',
+    'counterEl',
+    'arrowEl',
+    'preloaderEl',
+    'tapToClose',
+    'tapToToggleControls',
+    'clickToCloseNonZoomable',
+  );
+  foreach ($booleans as $boolean) {
+    $options[$boolean] = (boolean) $options[$boolean];
+  }
+
+  return $options;
+}
+
+function _ikto_photoswipe_get_attachments() {
+  $attached['libraries_load'][] = array('photoswipe', variable_get('ikto_photoswipe_library_variant', 'minified'));
+  $attached['js'][] = array(
+    'data' => drupal_get_path('module', 'ikto_photoswipe') . '/js/ikto_photoswipe.js',
+    'type' => 'file',
+  );
+  if (variable_get('ikto_photoswipe_compat_slick', FALSE)) {
+    $attached['js'][] = array(
+      'data' => drupal_get_path('module', 'ikto_photoswipe') . '/js/ikto_photoswipe_slick.js',
+      'type' => 'file',
+    );
+  }
+  $attached['js'][] = array(
+    'data' => array(
+      'ikto_photoswipe' => array(
+        'defaults' => ikto_photoswipe_get_global_options_core() +
+          ikto_photoswipe_get_global_options_default_ui(),
+        'pswp_element' => theme('ikto_photoswipe_element'),
+      ),
+    ),
+    'type' => 'setting',
+  );
+
+  return $attached;
+}
