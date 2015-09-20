@@ -77,8 +77,8 @@ function ikto_photoswipe_libraries_info() {
       'minified' => array(
         'files' => array(
           'js' => array(
-            'photoswipe.min.js',
-            'photoswipe-ui-default.min.js',
+            'photoswipe.min.js' => array('group' => JS_LIBRARY),
+            'photoswipe-ui-default.min.js' => array('group' => JS_LIBRARY),
           ),
           'css' => array(
             'photoswipe.css',
@@ -89,8 +89,8 @@ function ikto_photoswipe_libraries_info() {
       'source' => array(
         'files' => array(
           'js' => array(
-            'photoswipe.js',
-            'photoswipe-ui-default.js',
+            'photoswipe.js' => array('group' => JS_LIBRARY),
+            'photoswipe-ui-default.js' => array('group' => JS_LIBRARY),
           ),
           'css' => array(
             'photoswipe.css',
