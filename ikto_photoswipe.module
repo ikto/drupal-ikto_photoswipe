@@ -371,11 +371,13 @@ function _ikto_photoswipe_get_attachments() {
   $attached['js'][] = array(
     'data' => drupal_get_path('module', 'ikto_photoswipe') . '/js/ikto_photoswipe.js',
     'type' => 'file',
+    'weight' => 0,
   );
   if (variable_get('ikto_photoswipe_compat_slick', FALSE)) {
     $attached['js'][] = array(
       'data' => drupal_get_path('module', 'ikto_photoswipe') . '/js/ikto_photoswipe_slick.js',
       'type' => 'file',
+      'weight' => 1,
     );
   }
   $attached['js'][] = array(
